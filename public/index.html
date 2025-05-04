@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Velha</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            animation: fadeIn 1s ease-in;
+            max-width: 400px;
+            width: 90%;
+            margin: 20px;
+            position: relative;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            gap: 10px;
+            margin: 20px auto;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            background: #fff;
+            border-radius: 10px;
+            font-size: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s, background 0.2s;
+        }
+        .cell:hover {
+            transform: scale(1.05);
+            background: #e0e0e0;
+        }
+        .cell:active {
+            transform: scale(0.95);
+        }
+        .hamburger {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            font-size: 30px;
+            cursor: pointer;
+            z-index: 2000;
+            color: #fff;
+            transition: transform 0.3s;
+        }
+        .hamburger:hover {
+            transform: rotate(90deg);
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -250px;
+            width: 250px;
+            height: 100%;
+            background: #2c3e50;
+            color: #fff;
+            transition: left 0.3s ease-in-out;
+            z-index: 2000;
+            padding: 20px;
+        }
+        .sidebar.open {
+            left: 0;
+        }
+        .sidebar a {
+            display: block;
+            color: #fff;
+            padding: 15px;
+            text-decoration: none;
+            font-size: 1.1em;
+            border-radius: 5px;
+            margin: 5px 0;
+            transition: background 0.2s;
+        }
+        .sidebar a:hover {
+            background: #34495e;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            transform: scale(0.7);
+            animation: zoomIn 0.3s forwards;
+        }
+        @keyframes zoomIn {
+            to { transform: scale(1); }
+        }
+        .modal-content button {
+            margin: 10px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: #6e8efb;
+            color: #fff;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .modal-content button:hover {
+            transform: scale(1.05);
+            background: #a777e3;
+        }
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 25px;
+            cursor: pointer;
+            color: #333;
+        }
+        #status {
+            margin: 20px 0;
+            font-size: 1.1em;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #scores {
+            margin: 20px 0;
+            font-size: 1em;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            animation: fadeIn 0.5s ease-in;
+        }
+        .score-section {
+            margin-bottom: 15px;
+        }
+        .score-section h3 {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #ffd700;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        .score-card {
+            background: linear-gradient(45deg, #4a90e2, #9013fe);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+            color: #fff;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
+        }
+        .score-card:hover {
+            transform: translateY(-3px);
+        }
+        input, select {
+            padding: 10px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 5px;
+            width: 80%;
+        }
+        #game-over {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2500;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease-in;
+        }
+        .game-over-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            transform: scale(0.7);
+            animation: zoomIn 0.3s forwards;
+        }
+        .game-over-content p {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .game-over-content button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: #6e8efb;
+            color: #fff;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .game-over-content button:hover {
+            transform: scale(1.05);
+            background: #a777e3;
+        }
+        @media (max-width: 600px) {
+            .board {
+                grid-template-columns: repeat(3, 80px);
+            }
+            .cell {
+                width: 80px;
+                height: 80px;
+                font-size: 50px;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+            .container {
+                padding: 15px;
+            }
+            .score-card {
+                font-size: 0.9em;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hamburger">☰</div>
+    <div class="sidebar" id="sidebar">
+        <a onclick="openModal('saveModal')">💾 Baixar Partidas</a>
+        <a onclick="openModal('restoreModal')">📂 Restaurar Partidas</a>
+        <a onclick="openModal('difficultyModal')">⚙️ Configurar Dificuldade</a>
+        <a onclick="openModal('emojiModal')">😎 Escolher Emojis</a>
+        <a onclick="openModal('onlineModal')">🌐 Modo Online</a>
+        <a onclick="openModal('localModal')">🎮 Modo Local</a>
+        <a onclick="openModal('scoresModal')">🏆 Ver Pontuações</a>
+    </div>
+
+    <div class="container">
+        <h1>Jogo da Velha</h1>
+        <div id="status">Aguardando jogada...</div>
+        <div id="scores"></div>
+        <div class="board" id="board">
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
+        </div>
+        <div id="game-over">
+            <div class="game-over-content">
+                <p id="game-over-message"></p>
+                <button onclick="resetGame()">Reiniciar Partida</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" id="saveModal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>Baixar Partidas</h2>
+            <button onclick="saveGame()">Baixar Arquivo</button>
+        </div>
+    </div>
+    <div class="modal" id="restoreModal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>Restaurar Partidas</h2>
+            <input type="file" id="restoreFile" accept=".txt">
+            <button onclick="restoreGame()">Restaurar</button>
+        </div>
+    </div>
+    <div class="modal" id="difficultyModal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>Escolher Dificuldade</h2>
+            <select id="difficulty">
+                <option value="easy">Fácil</option>
+                <option value="medium">Médio</option>
+                <option value="hard">Difícil</option>
+            </select>
+            <button onclick="setDifficulty()">Confirmar</button>
+        </div>
+    </div>
+    <div class="modal" id="emojiModal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>Escolher Emojis</h2>
+            <label>Jogador: <input type="text" id="playerEmoji" value="❌"></label><br>
+            <label>IA/Oponente: <input type="text" id="aiEmoji" value="⭕"></label><br>
+            <button onclick="setEmojis()">Confirmar</button>
+        </div>
+    </div>
+    <div class="modal" id="onlineModal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>Modo Online</h2>
+            <button onclick="createOnlineGame()">Criar Sala</button>
+            <p>ou</p>
+            <label>Entrar em Sala: <input type="text" id="roomId" placeholder="Código da sala"></label><br>
+            <button onclick="joinOnlineGame()">Entrar</button>
+            <p id="roomIdDisplay"></p>
+        </div>
+    </div>
+    <div class="modal" id="localModal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>Modo Local (2 Jogadores)</h2>
+            <button onclick="startLocalGame()">Iniciar</button>
+        </div>
+    </div>
+    <div class="modal" id="scoresModal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>Pontuações</h2>
+            <div id="scoresDisplay"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:3000', { transports: ['websocket'], reconnectionAttempts: 3 });
+        const gameState = {
+            board: Array(9).fill(null),
+            currentPlayer: '❌',
+            playerSymbol: '❌',
+            aiSymbol: '⭕',
+            difficulty: 'hard',
+            gameOver: false,
+            isOnline: false,
+            isLocal: false,
+            roomId: null,
+            scores: {
+                easy: { player: 0, ai: 0, ties: 0 },
+                medium: { player: 0, ai: 0, ties: 0 },
+                hard: { player: 0, ai: 0, ties: 0 },
+                online: { wins: 0, losses: 0, ties: 0 },
+                local: { player1: 0, player2: 0, ties: 0 }
+            }
+        };
+
+        // Inicializar eventos
+        try {
+            const hamburger = document.querySelector('.hamburger');
+            const sidebar = document.getElementById('sidebar');
+
+            hamburger.addEventListener('click', () => {
+                console.log('Hambúrguer clicado');
+                sidebar.classList.toggle('open');
+            });
+            hamburger.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                console.log('Hambúrguer tocado');
+                sidebar.classList.toggle('open');
+            });
+
+            document.addEventListener('click', (event) => {
+                try {
+                    const isClickInsideSidebar = event.target.closest('#sidebar');
+                    const isClickOnHamburger = event.target.closest('.hamburger');
+                    if (!isClickInsideSidebar && !isClickOnHamburger && sidebar.classList.contains('open')) {
+                        console.log('Clicado fora da barra lateral');
+                        sidebar.classList.remove('open');
+                    }
+                } catch (error) {
+                    console.error('Erro ao processar clique fora da barra:', error);
+                }
+            });
+            document.addEventListener('touchstart', (event) => {
+                try {
+                    const isClickInsideSidebar = event.target.closest('#sidebar');
+                    const isClickOnHamburger = event.target.closest('.hamburger');
+                    if (!isClickInsideSidebar && !isClickOnHamburger && sidebar.classList.contains('open')) {
+                        console.log('Tocado fora da barra lateral');
+                        sidebar.classList.remove('open');
+                    }
+                } catch (error) {
+                    console.error('Erro ao processar toque fora da barra:', error);
+                }
+            });
+
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.addEventListener('click', () => {
+                    console.log(`Célula ${cell.dataset.index} clicada`);
+                    handleCellClick(cell.dataset.index);
+                });
+                cell.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    console.log(`Célula ${cell.dataset.index} tocada`);
+                    handleCellClick(cell.dataset.index);
+                });
+            });
+
+            document.querySelectorAll('.close').forEach(closeBtn => {
+                closeBtn.addEventListener('click', () => {
+                    console.log('Fechar modal clicado');
+                    closeBtn.closest('.modal').style.display = 'none';
+                });
+                closeBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    console.log('Fechar modal tocado');
+                    closeBtn.closest('.modal').style.display = 'none';
+                });
+            });
+        } catch (error) {
+            console.error('Erro ao inicializar eventos:', error);
+        }
+
+        function openModal(modalId) {
+            try {
+                console.log(`Abrindo modal ${modalId}`);
+                document.getElementById(modalId).style.display = 'flex';
+                document.getElementById('sidebar').classList.remove('open');
+            } catch (error) {
+                console.error('Erro ao abrir modal:', error);
+            }
+        }
+
+        function closeModal(modalId) {
+            try {
+                console.log(`Fechando modal ${modalId}`);
+                document.getElementById(modalId).style.display = 'none';
+            } catch (error) {
+                console.error('Erro ao fechar modal:', error);
+            }
+        }
+
+        function showGameOver(message) {
+            try {
+                document.getElementById('game-over-message').textContent = message;
+                document.getElementById('game-over').style.display = 'flex';
+            } catch (error) {
+                console.error('Erro ao mostrar game over:', error);
+            }
+        }
+
+        function hideGameOver() {
+            try {
+                document.getElementById('game-over').style.display = 'none';
+            } catch (error) {
+                console.error('Erro ao esconder game over:', error);
+            }
+        }
+
+        function updateBoard() {
+            try {
+                document.querySelectorAll('.cell').forEach((cell, index) => {
+                    cell.textContent = gameState.board[index] || '';
+                });
+                document.getElementById('status').textContent = gameState.isOnline
+                    ? gameState.roomId
+                        ? `Sala: ${gameState.roomId} | Sua vez: ${gameState.currentPlayer === gameState.playerSymbol ? 'Sim' : 'Não'}`
+                        : 'Aguardando conexão...'
+                    : gameState.isLocal
+                    ? `Jogador atual: ${gameState.currentPlayer === gameState.playerSymbol ? 'Jogador 1' : 'Jogador 2'}`
+                    : `Jogador atual: ${gameState.currentPlayer} (Dificuldade: ${gameState.difficulty})`;
+            } catch (error) {
+                console.error('Erro ao atualizar tabuleiro:', error);
+            }
+        }
+
+        function updateScores() {
+            try {
+                const scores = gameState.scores;
+                const html = `
+                    <div class="score-section">
+                        <h3>🧠 Modo IA</h3>
+                        <div class="score-card">Fácil: Jogador ${scores.easy.player} | IA ${scores.easy.ai} | Empates ${scores.easy.ties}</div>
+                        <div class="score-card">Médio: Jogador ${scores.medium.player} | IA ${scores.medium.ai} | Empates ${scores.medium.ties}</div>
+                        <div class="score-card">Difícil: Jogador ${scores.hard.player} | IA ${scores.hard.ai} | Empates ${scores.hard.ties}</div>
+                    </div>
+                    <div class="score-section">
+                        <h3>🌐 Modo Online</h3>
+                        <div class="score-card">Vitórias ${scores.online.wins} | Derrotas ${scores.online.losses} | Empates ${scores.online.ties}</div>
+                    </div>
+                    <div class="score-section">
+                        <h3>🎮 Modo Local</h3>
+                        <div class="score-card">Jogador 1 ${scores.local.player1} | Jogador 2 ${scores.local.player2} | Empates ${scores.local.ties}</div>
+                    </div>
+                `;
+                document.getElementById('scores').innerHTML = html;
+                document.getElementById('scoresDisplay').innerHTML = html;
+            } catch (error) {
+                console.error('Erro ao atualizar pontuações:', error);
+            }
+        }
+
+        function checkWinner(board) {
+            try {
+                const winPatterns = [
+                    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                    [0, 4, 8], [2, 4, 6]
+                ];
+                for (const pattern of winPatterns) {
+                    const [a, b, c] = pattern;
+                    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                        return { winner: board[a], isTie: false };
+                    }
+                }
+                return board.every(cell => cell) ? { winner: null, isTie: true } : { winner: null, isTie: false };
+            } catch (error) {
+                console.error('Erro ao verificar vencedor:', error);
+                return { winner: null, isTie: false };
+            }
+        }
+
+        function handleCellClick(index) {
+            try {
+                if (gameState.gameOver || gameState.board[index]) {
+                    console.log('Jogada inválida:', { gameOver: gameState.gameOver, cell: gameState.board[index] });
+                    return;
+                }
+
+                if (gameState.isOnline) {
+                    if (gameState.currentPlayer === gameState.playerSymbol) {
+                        console.log('Enviando jogada online:', { roomId: gameState.roomId, index, symbol: gameState.playerSymbol });
+                        socket.emit('makeMove', { roomId: gameState.roomId, index, symbol: gameState.playerSymbol });
+                    } else {
+                        console.log('Não é sua vez no modo online');
+                    }
+                    return;
+                }
+
+                if (gameState.isLocal) {
+                    gameState.board[index] = gameState.currentPlayer;
+                    const result = checkWinner(gameState.board);
+                    if (result.winner) {
+                        showGameOver(`Jogador ${gameState.currentPlayer === gameState.playerSymbol ? '1' : '2'} venceu!`);
+                        gameState.scores.local[gameState.currentPlayer === gameState.playerSymbol ? 'player1' : 'player2']++;
+                        gameState.gameOver = true;
+                    } else if (result.isTie) {
+                        showGameOver('Empate!');
+                        gameState.scores.local.ties++;
+                        gameState.gameOver = true;
+                    } else {
+                        gameState.currentPlayer = gameState.currentPlayer === gameState.playerSymbol ? gameState.aiSymbol : gameState.playerSymbol;
+                    }
+                    updateBoard();
+                    updateScores();
+                    return;
+                }
+
+                if (gameState.currentPlayer === gameState.playerSymbol) {
+                    gameState.board[index] = gameState.playerSymbol;
+                    const result = checkWinner(gameState.board);
+                    if (result.winner) {
+                        showGameOver('Você venceu!');
+                        gameState.scores[gameState.difficulty].player++;
+                        gameState.gameOver = true;
+                    } else if (result.isTie) {
+                        showGameOver('Empate!');
+                        gameState.scores[gameState.difficulty].ties++;
+                        gameState.gameOver = true;
+                    } else {
+                        gameState.currentPlayer = gameState.aiSymbol;
+                        setTimeout(() => {
+                            console.log('Turno da IA');
+                            aiMove();
+                        }, 500);
+                    }
+                    updateBoard();
+                    updateScores();
+                }
+            } catch (error) {
+                console.error('Erro ao processar clique na célula:', error);
+            }
+        }
+
+        function aiMove() {
+            try {
+                if (gameState.gameOver) {
+                    console.log('Jogo terminado, IA não joga');
+                    return;
+                }
+                console.log(`IA jogando (dificuldade: ${gameState.difficulty})`);
+
+                let move;
+                if (gameState.difficulty === 'easy') {
+                    move = Math.random() < 0.7 ? getRandomMove() : minimax(gameState.board, gameState.aiSymbol, Infinity).index;
+                    console.log('Modo fácil:', move);
+                } else if (gameState.difficulty === 'medium') {
+                    move = minimax(gameState.board, gameState.aiSymbol, 3).index;
+                    console.log('Modo médio:', move);
+                } else {
+                    move = minimax(gameState.board, gameState.aiSymbol, Infinity).index;
+                    console.log('Modo difícil:', move);
+                }
+
+                if (move === undefined || move === null || gameState.board[move]) {
+                    console.error('Movimento inválido da IA:', move);
+                    return;
+                }
+
+                gameState.board[move] = gameState.aiSymbol;
+                const result = checkWinner(gameState.board);
+                if (result.winner) {
+                    showGameOver('IA venceu!');
+                    gameState.scores[gameState.difficulty].ai++;
+                    gameState.gameOver = true;
+                } else if (result.isTie) {
+                    showGameOver('Empate!');
+                    gameState.scores[gameState.difficulty].ties++;
+                    gameState.gameOver = true;
+                } else {
+                    gameState.currentPlayer = gameState.playerSymbol;
+                }
+                updateBoard();
+                updateScores();
+            } catch (error) {
+                console.error('Erro no movimento da IA:', error);
+            }
+        }
+
+        function getRandomMove() {
+            try {
+                const emptyCells = gameState.board
+                    .map((cell, index) => (cell ? null : index))
+                    .filter(i => i !== null);
+                if (emptyCells.length === 0) {
+                    console.error('Nenhuma célula vazia para jogada aleatória');
+                    return null;
+                }
+                return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            } catch (error) {
+                console.error('Erro ao obter jogada aleatória:', error);
+                return null;
+            }
+        }
+
+        function minimax(board, player, maxDepth = Infinity, currentDepth = 0) {
+            try {
+                const result = checkWinner(board);
+                if (result.winner === gameState.aiSymbol) return { score: 10 - currentDepth, index: null };
+                if (result.winner === gameState.playerSymbol) return { score: currentDepth - 10, index: null };
+                if (result.isTie || currentDepth >= maxDepth) return { score: 0, index: null };
+
+                const moves = [];
+                for (let i = 0; i < board.length; i++) {
+                    if (!board[i]) {
+                        const newBoard = [...board];
+                        newBoard[i] = player;
+                        const result = minimax(newBoard, player === gameState.aiSymbol ? gameState.playerSymbol : gameState.aiSymbol, maxDepth, currentDepth + 1);
+                        moves.push({ index: i, score: result.score });
+                    }
+                }
+
+                if (moves.length === 0) {
+                    console.error('Nenhuma jogada válida encontrada no minimax');
+                    return { score: 0, index: null };
+                }
+
+                return player === gameState.aiSymbol
+                    ? moves.reduce((best, move) => (move.score > best.score ? move : best), { score: -Infinity, index: null })
+                    : moves.reduce((best, move) => (move.score < best.score ? move : best), { score: Infinity, index: null });
+            } catch (error) {
+                console.error('Erro no minimax:', error);
+                return { score: 0, index: null };
+            }
+        }
+
+        function resetGame() {
+            try {
+                console.log('Resetando jogo...');
+                gameState.board = Array(9).fill(null);
+                gameState.currentPlayer = gameState.playerSymbol;
+                gameState.gameOver = false;
+                hideGameOver();
+                if (gameState.isOnline && gameState.roomId) {
+                    console.log(`Enviando reset para sala ${gameState.roomId}`);
+                    socket.emit('resetGame', gameState.roomId);
+                }
+                updateBoard();
+                updateScores();
+            } catch (error) {
+                console.error('Erro ao resetar jogo:', error);
+            }
+        }
+
+        function saveGame() {
+            try {
+                const data = JSON.stringify(gameState.scores);
+                const blob = new Blob([data], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'tictactoe_scores.txt';
+                a.click();
+                URL.revokeObjectURL(url);
+                closeModal('saveModal');
+            } catch (error) {
+                console.error('Erro ao salvar jogo:', error);
+            }
+        }
+
+        function restoreGame() {
+            try {
+                const file = document.getElementById('restoreFile').files[0];
+                if (!file) {
+                    alert('Selecione um arquivo!');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const scores = JSON.parse(e.target.result);
+                        gameState.scores = scores;
+                        updateScores();
+                        closeModal('restoreModal');
+                    } catch (err) {
+                        alert('Arquivo inválido!');
+                    }
+                };
+                reader.readAsText(file);
+            } catch (error) {
+                console.error('Erro ao restaurar jogo:', error);
+            }
+        }
+
+        function setDifficulty() {
+            try {
+                gameState.difficulty = document.getElementById('difficulty').value;
+                console.log(`Dificuldade definida: ${gameState.difficulty}`);
+                gameState.isOnline = false;
+                gameState.isLocal = false;
+                gameState.roomId = null;
+                resetGame();
+                closeModal('difficultyModal');
+            } catch (error) {
+                console.error('Erro ao definir dificuldade:', error);
+            }
+        }
+
+        function setEmojis() {
+            try {
+                const playerEmoji = document.getElementById('playerEmoji').value;
+                const aiEmoji = document.getElementById('aiEmoji').value;
+                if (playerEmoji && aiEmoji && playerEmoji !== aiEmoji) {
+                    gameState.playerSymbol = playerEmoji;
+                    gameState.aiSymbol = aiEmoji;
+                    resetGame();
+                    closeModal('emojiModal');
+                } else {
+                    alert('Escolha emojis diferentes!');
+                }
+            } catch (error) {
+                console.error('Erro ao definir emojis:', error);
+            }
+        }
+
+        function startLocalGame() {
+            try {
+                gameState.isOnline = false;
+                gameState.isLocal = true;
+                gameState.roomId = null;
+                resetGame();
+                closeModal('localModal');
+            } catch (error) {
+                console.error('Erro ao iniciar modo local:', error);
+            }
+        }
+
+        function createOnlineGame() {
+            try {
+                const roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
+                socket.emit('createRoom', roomId);
+                gameState.isOnline = true;
+                gameState.isLocal = false;
+                gameState.roomId = roomId;
+                gameState.playerSymbol = '❌';
+                gameState.aiSymbol = '⭕';
+                document.getElementById('roomIdDisplay').innerText = `ID da Sala: ${roomId} (Copie e envie ao seu amigo)`;
+                document.getElementById('status').textContent = `Aguardando segundo jogador na sala ${roomId}...`;
+                closeModal('onlineModal');
+            } catch (error) {
+                console.error('Erro ao criar sala online:', error);
+            }
+        }
+
+        function joinOnlineGame() {
+            try {
+                const roomId = document.getElementById('roomId').value.toUpperCase();
+                if (!roomId) {
+                    alert('Digite o código da sala!');
+                    return;
+                }
+                socket.emit('joinRoom', roomId);
+                gameState.isOnline = true;
+                gameState.isLocal = false;
+                gameState.roomId = roomId;
+                gameState.playerSymbol = '⭕';
+                gameState.aiSymbol = '❌';
+                document.getElementById('status').textContent = `Conectando à sala ${roomId}...`;
+                closeModal('onlineModal');
+            } catch (error) {
+                console.error('Erro ao entrar na sala online:', error);
+            }
+        }
+
+        // Socket.IO Events
+        socket.on('connect', () => {
+            console.log('Conectado ao servidor');
+            document.getElementById('status').textContent = 'Conectado! Escolha um modo de jogo.';
+        });
+
+        socket.on('roomCreated', (roomId) => {
+            console.log(`Sala criada: ${roomId}`);
+            gameState.board = Array(9).fill(null);
+            gameState.currentPlayer = '❌';
+            updateBoard();
+        });
+
+        socket.on('playerJoined', () => {
+            console.log('Segundo jogador entrou na sala');
+            gameState.board = Array(9).fill(null);
+            gameState.currentPlayer = '❌';
+            gameState.gameOver = false;
+            updateBoard();
+            document.getElementById('status').textContent = `Jogador atual: ${gameState.currentPlayer} (Sala: ${gameState.roomId})`;
+            closeModal('onlineModal');
+        });
+
+        socket.on('gameState', (state) => {
+            console.log('Estado do jogo atualizado:', state);
+            gameState.board = state.board;
+            gameState.currentPlayer = state.currentPlayer;
+            gameState.gameOver = state.gameOver;
+            updateBoard();
+            if (!gameState.gameOver) {
+                hideGameOver();
+            }
+        });
+
+        socket.on('gameOver', (result) => {
+            try {
+                if (result.winner) {
+                    const isWinner = result.winner === gameState.playerSymbol;
+                    showGameOver(isWinner ? 'Você venceu!' : 'Você perdeu!');
+                    gameState.scores.online[isWinner ? 'wins' : 'losses']++;
+                } else {
+                    showGameOver('Empate!');
+                    gameState.scores.online.ties++;
+                }
+                gameState.gameOver = true;
+                updateScores();
+            } catch (error) {
+                console.error('Erro ao processar fim de jogo:', error);
+            }
+        });
+
+        socket.on('resetGame', () => {
+            console.log('Jogo resetado pelo servidor');
+            gameState.board = Array(9).fill(null);
+            gameState.currentPlayer = '❌';
+            gameState.gameOver = false;
+            hideGameOver();
+            updateBoard();
+            document.getElementById('status').textContent = `Partida reiniciada na sala ${gameState.roomId} | Sua vez: ${gameState.currentPlayer === gameState.playerSymbol ? 'Sim' : 'Não'}`;
+        });
+
+        socket.on('error', (message) => {
+            console.log('Erro do servidor:', message);
+            alert(message);
+            gameState.isOnline = false;
+            gameState.roomId = null;
+            gameState.playerSymbol = '❌';
+            gameState.aiSymbol = '⭕';
+            document.getElementById('roomIdDisplay').innerText = '';
+            updateBoard();
+            closeModal('onlineModal');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Desconectado do servidor');
+            if (gameState.isOnline) {
+                alert('Desconectado do servidor. Verifique sua conexão.');
+                gameState.isOnline = false;
+                gameState.roomId = null;
+                gameState.playerSymbol = '❌';
+                gameState.aiSymbol = '⭕';
+                document.getElementById('roomIdDisplay').innerText = '';
+                updateBoard();
+            }
+        });
+
+        // Inicializar jogo
+        try {
+            updateBoard();
+            updateScores();
+            console.log('Jogo inicializado com sucesso');
+        } catch (error) {
+            console.error('Erro ao inicializar jogo:', error);
+        }
+    </script>
+</body>
+</html>
