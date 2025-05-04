@@ -367,7 +367,7 @@
     </div>
 
     <script>
-        const socket = io('http://localhost:3000', { transports: ['websocket'], reconnectionAttempts: 3 });
+        const socket = io('https://jdv-7zxq.onrender.com', { transports: ['websocket'], reconnectionAttempts: 3 });
         const gameState = {
             board: Array(9).fill(null),
             currentPlayer: '❌',
