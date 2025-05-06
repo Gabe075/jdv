@@ -53,9 +53,11 @@ io.on('connection', (socket) => {
                 currentPlayer: firstPlayer,
                 gameOver: false
             });
-            // Atualiza status para ambos os jogadores
-            io.to(rooms[roomId].players[0]).emit('statusUpdate', `Sala: ${roomId} | Sua vez: ${firstPlayer === rooms[roomId].symbols[rooms[roomId].players[0]] ? 'Sim' : 'Não'}`);
-            io.to(socket.id).emit('statusUpdate', `Sala: ${roomId} | Sua vez: ${firstPlayer === playerSymbol ? 'Sim' : 'Não'}`);
+            // Atualiza status para ambos
+            rooms[roomId].players.forEach(playerId => {
+                const isMyTurn = rooms[roomId].currentPlayer === rooms[roomId].symbols[playerId];
+                io.to(playerId).emit('statusUpdate', `Sala: ${roomId} | Sua vez: ${isMyTurn ? 'Sim' : 'Não'}`);
+            });
         } else {
             socket.emit('error', 'Sala cheia ou inexistente');
         }
@@ -84,7 +86,7 @@ io.on('connection', (socket) => {
                 currentPlayer: rooms[roomId].currentPlayer,
                 gameOver: winner || isTie
             });
-            // Atualiza status para ambos os jogadores
+            // Atualiza status para todos
             rooms[roomId].players.forEach(playerId => {
                 const isMyTurn = rooms[roomId].currentPlayer === rooms[roomId].symbols[playerId];
                 io.to(playerId).emit('statusUpdate', `Sala: ${roomId} | Sua vez: ${isMyTurn ? 'Sim' : 'Não'}`);
