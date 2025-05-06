@@ -79,6 +79,12 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('chatMessage', ({ roomId, message }) => {
+        if (rooms[roomId]) {
+            io.to(roomId).emit('chatMessage', message);
+        }
+    });
+
     socket.on('resetGame', (roomId) => {
         if (rooms[roomId]) {
             rooms[roomId].board = Array(9).fill(null);
