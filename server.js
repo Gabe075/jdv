@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -7,7 +6,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
-        origin: '*', // Permite conexões de qualquer origem (ajuste em produção)
+        origin: '*',
         methods: ['GET', 'POST']
     }
 });
@@ -15,13 +14,19 @@ const io = socketIo(server, {
 const rooms = {};
 
 io.on('connection', (socket) => {
-    console.log('Novo cliente conectado:', socket.id);
-
     socket.on('createRoom', (roomId) => {
         if (!rooms[roomId]) {
-            rooms[roomId] = { players: [socket.id], board: Array(9).fill(null), currentPlayer: '❌' };
+            const firstPlayer = Math.random() < 0.5 ? '❌' : '⭕';
+            const playerSymbol = firstPlayer;
+            const aiSymbol = playerSymbol === '❌' ? '⭕' : '❌';
+            rooms[roomId] = { 
+                players: [socket.id], 
+                board: Array(9).fill(null), 
+                currentPlayer: firstPlayer,
+                symbols: { [socket.id]: playerSymbol }
+            };
             socket.join(roomId);
-            socket.emit('roomCreated', roomId);
+            socket.emit('roomCreated', { playerSymbol, aiSymbol, firstPlayer });
         } else {
             socket.emit('error', 'Sala já existe');
         }
@@ -29,9 +34,14 @@ io.on('connection', (socket) => {
 
     socket.on('joinRoom', (roomId) => {
         if (rooms[roomId] && rooms[roomId].players.length < 2) {
+            const firstPlayer = rooms[roomId].currentPlayer;
+            const creatorSymbol = rooms[roomId].symbols[rooms[roomId].players[0]];
+            const playerSymbol = creatorSymbol === '❌' ? '⭕' : '❌';
+            const aiSymbol = creatorSymbol;
             rooms[roomId].players.push(socket.id);
+            rooms[roomId].symbols[socket.id] = playerSymbol;
             socket.join(roomId);
-            io.to(roomId).emit('playerJoined');
+            io.to(roomId).emit('playerJoined', { playerSymbol, aiSymbol, firstPlayer });
             io.to(roomId).emit('gameState', {
                 board: rooms[roomId].board,
                 currentPlayer: rooms[roomId].currentPlayer,
@@ -72,8 +82,9 @@ io.on('connection', (socket) => {
     socket.on('resetGame', (roomId) => {
         if (rooms[roomId]) {
             rooms[roomId].board = Array(9).fill(null);
-            rooms[roomId].currentPlayer = '❌';
-            io.to(roomId).emit('resetGame');
+            const firstPlayer = Math.random() < 0.5 ? '❌' : '⭕';
+            rooms[roomId].currentPlayer = firstPlayer;
+            io.to(roomId).emit('resetGame', { firstPlayer });
         }
     });
 
