@@ -14,6 +14,8 @@ const io = socketIo(server, {
 const rooms = {};
 
 io.on('connection', (socket) => {
+    console.log(`Novo usuário conectado: ${socket.id}`);
+
     socket.on('createRoom', (roomId) => {
         if (!rooms[roomId]) {
             const firstPlayer = '❌'; // Criador da sala sempre começa
@@ -33,8 +35,10 @@ io.on('connection', (socket) => {
                 gameOver: false
             });
             socket.emit('statusUpdate', `Sala: ${roomId} | Sua vez: Sim`);
+            console.log(`Sala ${roomId} criada por ${socket.id}, primeiro jogador: ${firstPlayer}`);
         } else {
             socket.emit('error', 'Sala já existe');
+            console.log(`Tentativa de criar sala duplicada: ${roomId}`);
         }
     });
 
@@ -58,12 +62,15 @@ io.on('connection', (socket) => {
                 const isMyTurn = rooms[roomId].currentPlayer === rooms[roomId].symbols[playerId];
                 io.to(playerId).emit('statusUpdate', `Sala: ${roomId} | Sua vez: ${isMyTurn ? 'Sim' : 'Não'}`);
             });
+            console.log(`Jogador ${socket.id} entrou na sala ${roomId}, símbolo: ${playerSymbol}`);
         } else {
             socket.emit('error', 'Sala cheia ou inexistente');
+            console.log(`Tentativa de entrar em sala inválida: ${roomId}`);
         }
     });
 
     socket.on('makeMove', ({ roomId, index, symbol }) => {
+        console.log(`Jogada recebida: ${socket.id}, sala ${roomId}, índice ${index}, símbolo ${symbol}`);
         if (rooms[roomId] && !rooms[roomId].board[index] && rooms[roomId].currentPlayer === symbol) {
             rooms[roomId].board[index] = symbol;
             const winPatterns = [
@@ -91,15 +98,21 @@ io.on('connection', (socket) => {
                 const isMyTurn = rooms[roomId].currentPlayer === rooms[roomId].symbols[playerId];
                 io.to(playerId).emit('statusUpdate', `Sala: ${roomId} | Sua vez: ${isMyTurn ? 'Sim' : 'Não'}`);
             });
+            console.log(`Jogada processada em ${roomId}, novo turno: ${rooms[roomId].currentPlayer}`);
             if (winner || isTie) {
                 io.to(roomId).emit('gameOver', { winner, isTie });
+                console.log(`Partida terminada em ${roomId}, resultado: ${winner ? winner + ' venceu' : 'Empate'}`);
             }
+        } else {
+            console.log(`Jogada inválida em ${roomId}: célula ocupada ou não é a vez de ${socket.id}`);
+            socket.emit('statusUpdate', `Sala: ${roomId} | Sua vez: Não (jogada inválida)`);
         }
     });
 
     socket.on('chatMessage', ({ roomId, message }) => {
         if (rooms[roomId]) {
             io.to(roomId).emit('chatMessage', message);
+            console.log(`Mensagem enviada em ${roomId}: ${message}`);
         }
     });
 
@@ -119,17 +132,21 @@ io.on('connection', (socket) => {
                 const isMyTurn = firstPlayer === rooms[roomId].symbols[playerId];
                 io.to(playerId).emit('statusUpdate', `Sala: ${roomId} | Sua vez: ${isMyTurn ? 'Sim' : 'Não'}`);
             });
+            console.log(`Partida reiniciada em ${roomId}, primeiro turno: ${firstPlayer}`);
         }
     });
 
     socket.on('disconnect', () => {
+        console.log(`Usuário desconectado: ${socket.id}`);
         for (const roomId in rooms) {
             if (rooms[roomId].players.includes(socket.id)) {
                 rooms[roomId].players = rooms[roomId].players.filter(id => id !== socket.id);
                 if (rooms[roomId].players.length === 0) {
                     delete rooms[roomId];
+                    console.log(`Sala ${roomId} deletada por falta de jogadores`);
                 } else {
                     io.to(roomId).emit('error', 'Um jogador desconectou');
+                    console.log(`Jogador ${socket.id} desconectado de ${roomId}`);
                 }
             }
         }
