@@ -34,17 +34,17 @@ io.on('connection', (socket) => {
 
     socket.on('joinRoom', (roomId) => {
         if (rooms[roomId] && rooms[roomId].players.length < 2) {
-            const firstPlayer = rooms[roomId].currentPlayer;
             const creatorSymbol = rooms[roomId].symbols[rooms[roomId].players[0]];
             const playerSymbol = creatorSymbol === '❌' ? '⭕' : '❌';
             const aiSymbol = creatorSymbol;
             rooms[roomId].players.push(socket.id);
             rooms[roomId].symbols[socket.id] = playerSymbol;
             socket.join(roomId);
+            const firstPlayer = rooms[roomId].currentPlayer;
             io.to(roomId).emit('playerJoined', { playerSymbol, aiSymbol, firstPlayer });
             io.to(roomId).emit('gameState', {
                 board: rooms[roomId].board,
-                currentPlayer: rooms[roomId].currentPlayer,
+                currentPlayer: firstPlayer,
                 gameOver: false
             });
         } else {
@@ -53,7 +53,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('makeMove', ({ roomId, index, symbol }) => {
-        if (rooms[roomId] && !rooms[roomId].board[index]) {
+        if (rooms[roomId] && !rooms[roomId].board[index] && rooms[roomId].currentPlayer === symbol) {
             rooms[roomId].board[index] = symbol;
             const winPatterns = [
                 [0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]
