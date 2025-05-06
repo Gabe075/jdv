@@ -16,7 +16,7 @@ const rooms = {};
 io.on('connection', (socket) => {
     socket.on('createRoom', (roomId) => {
         if (!rooms[roomId]) {
-            const firstPlayer = Math.random() < 0.5 ? '❌' : '⭕';
+            const firstPlayer = '❌'; // Quem cria a sala sempre começa
             const playerSymbol = firstPlayer;
             const aiSymbol = playerSymbol === '❌' ? '⭕' : '❌';
             rooms[roomId] = { 
@@ -40,7 +40,7 @@ io.on('connection', (socket) => {
             rooms[roomId].players.push(socket.id);
             rooms[roomId].symbols[socket.id] = playerSymbol;
             socket.join(roomId);
-            const firstPlayer = rooms[roomId].currentPlayer;
+            const firstPlayer = rooms[roomId].currentPlayer; // Quem criou a sala começa
             io.to(roomId).emit('playerJoined', { playerSymbol, aiSymbol, firstPlayer });
             io.to(roomId).emit('gameState', {
                 board: rooms[roomId].board,
@@ -88,7 +88,7 @@ io.on('connection', (socket) => {
     socket.on('resetGame', (roomId) => {
         if (rooms[roomId]) {
             rooms[roomId].board = Array(9).fill(null);
-            const firstPlayer = Math.random() < 0.5 ? '❌' : '⭕';
+            const firstPlayer = '❌'; // Quem criou a sala começa
             rooms[roomId].currentPlayer = firstPlayer;
             io.to(roomId).emit('resetGame', { firstPlayer });
         }
