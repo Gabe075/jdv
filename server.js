@@ -16,7 +16,7 @@ const rooms = {};
 io.on('connection', (socket) => {
     socket.on('createRoom', (roomId) => {
         if (!rooms[roomId]) {
-            const firstPlayer = '❌'; // Quem cria a sala sempre começa
+            const firstPlayer = '❌'; // Criador da sala sempre começa
             const playerSymbol = firstPlayer;
             const aiSymbol = playerSymbol === '❌' ? '⭕' : '❌';
             rooms[roomId] = { 
@@ -27,6 +27,12 @@ io.on('connection', (socket) => {
             };
             socket.join(roomId);
             socket.emit('roomCreated', { playerSymbol, aiSymbol, firstPlayer });
+            socket.emit('gameState', {
+                board: rooms[roomId].board,
+                currentPlayer: firstPlayer,
+                gameOver: false
+            });
+            socket.emit('statusUpdate', `Sala: ${roomId} | Sua vez: Sim`);
         } else {
             socket.emit('error', 'Sala já existe');
         }
@@ -40,13 +46,16 @@ io.on('connection', (socket) => {
             rooms[roomId].players.push(socket.id);
             rooms[roomId].symbols[socket.id] = playerSymbol;
             socket.join(roomId);
-            const firstPlayer = rooms[roomId].currentPlayer; // Quem criou a sala começa
+            const firstPlayer = rooms[roomId].currentPlayer; // Criador da sala começa
             io.to(roomId).emit('playerJoined', { playerSymbol, aiSymbol, firstPlayer });
             io.to(roomId).emit('gameState', {
                 board: rooms[roomId].board,
                 currentPlayer: firstPlayer,
                 gameOver: false
             });
+            // Atualiza status para ambos os jogadores
+            io.to(rooms[roomId].players[0]).emit('statusUpdate', `Sala: ${roomId} | Sua vez: ${firstPlayer === rooms[roomId].symbols[rooms[roomId].players[0]] ? 'Sim' : 'Não'}`);
+            io.to(socket.id).emit('statusUpdate', `Sala: ${roomId} | Sua vez: ${firstPlayer === playerSymbol ? 'Sim' : 'Não'}`);
         } else {
             socket.emit('error', 'Sala cheia ou inexistente');
         }
@@ -67,11 +76,18 @@ io.on('connection', (socket) => {
                 }
             }
             const isTie = rooms[roomId].board.every(cell => cell) && !winner;
-            rooms[roomId].currentPlayer = rooms[roomId].currentPlayer === '❌' ? '⭕' : '❌';
+            if (!winner && !isTie) {
+                rooms[roomId].currentPlayer = rooms[roomId].currentPlayer === '❌' ? '⭕' : '❌';
+            }
             io.to(roomId).emit('gameState', {
                 board: rooms[roomId].board,
                 currentPlayer: rooms[roomId].currentPlayer,
                 gameOver: winner || isTie
+            });
+            // Atualiza status para ambos os jogadores
+            rooms[roomId].players.forEach(playerId => {
+                const isMyTurn = rooms[roomId].currentPlayer === rooms[roomId].symbols[playerId];
+                io.to(playerId).emit('statusUpdate', `Sala: ${roomId} | Sua vez: ${isMyTurn ? 'Sim' : 'Não'}`);
             });
             if (winner || isTie) {
                 io.to(roomId).emit('gameOver', { winner, isTie });
@@ -88,9 +104,19 @@ io.on('connection', (socket) => {
     socket.on('resetGame', (roomId) => {
         if (rooms[roomId]) {
             rooms[roomId].board = Array(9).fill(null);
-            const firstPlayer = '❌'; // Quem criou a sala começa
+            const firstPlayer = '❌'; // Criador da sala começa
             rooms[roomId].currentPlayer = firstPlayer;
             io.to(roomId).emit('resetGame', { firstPlayer });
+            io.to(roomId).emit('gameState', {
+                board: rooms[roomId].board,
+                currentPlayer: firstPlayer,
+                gameOver: false
+            });
+            // Atualiza status após reset
+            rooms[roomId].players.forEach(playerId => {
+                const isMyTurn = firstPlayer === rooms[roomId].symbols[playerId];
+                io.to(playerId).emit('statusUpdate', `Sala: ${roomId} | Sua vez: ${isMyTurn ? 'Sim' : 'Não'}`);
+            });
         }
     });
 
